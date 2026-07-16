@@ -1,0 +1,118 @@
+{
+  "design_context": "Premium Dashboard & Finance SaaS for Indonesian Families",
+  "theme_strategy": "ARCHETYPE 5: LUXURY (Premium, Depth, Mystery). We are using a sophisticated Dark Theme to emulate high-end wealth management platforms (like Copilot and Monarch). The base is a deep, warm Obsidian/Charcoal. Surfaces will use subtle glassmorphism and 'optical clarity' rather than heavy gradients. Accents are jewel tones tied to Indonesian financial brands.",
+  "typography": {
+    "headings": "Playfair Display (For large Net Worth numbers, dashboard headers, and hero titles. Exudes trust, elegance, and 'Old Money').",
+    "body": "Manrope (Crisp, modern, highly readable geometric sans for dense transaction data, forms, and UI elements).",
+    "currency_format": "IDR only: 'Rp 1.500.000' (Thousands separator is period, no decimals, single space after Rp).",
+    "font_imports": "@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');",
+    "instructions_to_main_agent": "CRITICAL: Do NOT use Inter, Roboto, or Space Grotesk. Use Playfair Display for primary figures (Net Worth). Use Manrope with `tabular-nums` utility for transaction amounts so numbers align perfectly vertically. Enforce tight tracking `tracking-tight` on large headers."
+  },
+  "colors": {
+    "backgrounds": {
+      "page_base": "#0A0A0A",
+      "surface_default": "#141414",
+      "surface_glass": "rgba(255, 255, 255, 0.03)"
+    },
+    "text": {
+      "primary": "#F4F4F5",
+      "secondary": "#A1A1AA",
+      "tertiary": "#71717A"
+    },
+    "accents": {
+      "gold_premium": "#C5A880",
+      "income_emerald": "#10B981",
+      "expense_rose": "#F43F5E"
+    },
+    "brand_tints": {
+      "bca_blue": "#005EAA",
+      "gopay_green": "#00AED6",
+      "ovo_indigo": "#4C3494",
+      "mandiri_gold": "#F2A900"
+    },
+    "instructions_to_main_agent": "CRITICAL: Avoid purple/violet gradients across the main UI (except for specific OVO brand tags if needed, but no global purple). Use `bg-white/5` with `backdrop-blur-xl` and a delicate `border-white/10` for premium cards. DO NOT use completely transparent backgrounds where content scrolls underneath."
+  },
+  "layouts": {
+    "dashboard_grid": "Bento Grid Protocol: High Density Grid. Use grid-cols-1 md:grid-cols-3 lg:grid-cols-4. Spacing should be generous (`gap-6` to `gap-8`) to allow the dark theme to breathe.",
+    "alignment": "Left-align dense transaction data. Only use optical centering for primary CTA buttons or empty states. NO generic centered page structures.",
+    "instructions_to_main_agent": "Use `grid` for the dashboard layout. Ensure grid children stretch using `h-full`. Use generous padding (`p-6` or `p-8`) inside cards to prevent data clutter."
+  },
+  "components": {
+    "NetWorthCard": {
+      "style": "The Hero Card. Spans 2 columns on desktop. Features a massive Playfair Display figure. Use a 'Tracing Beam' effect or a subtle gold/bronze 1px inner border (`border-[#C5A880]/30`) to elevate its status. Include a soft radial glow behind the number.",
+      "behavior": "Hover lifts the card slightly with `shadow-2xl`."
+    },
+    "AccountCards": {
+      "style": "Neumorphic-glass blend. Flat dark background (`bg-[#141414]`) with a 1px solid border. The top edge of the card should have a 2px colored highlight indicating the bank (e.g., BCA Blue, GoPay Green).",
+      "layout": "Flexbox, bank logo/icon on top left, balance bottom right."
+    },
+    "TransactionRow": {
+      "style": "Minimalist list item. No individual cards for rows. Use a bottom border `border-white/5` to separate.",
+      "elements": "Left: Category Icon (in a soft tinted circle). Middle: Description & Date. Right: Amount (`text-emerald-500` or `text-white`) and a Privacy Lock icon (for PRIVATE) or Avatar stack (for SHARED)."
+    },
+    "FamilyWorkspaceAvatar": {
+      "style": "Use negative margin `-ml-2` for stacked avatars. Add a 2px `border-[#0A0A0A]` around each avatar to create a cut-out effect. Avatar sizes should be small `w-8 h-8`."
+    },
+    "SidebarNav": {
+      "style": "Left-side vertical navigation (or top nav with glassmorphism). MUST have a visible navigation layout on desktop, do not hide behind a hamburger."
+    }
+  },
+  "visual_enhancers": {
+    "borders_and_shadows": "Use 1px borders of `white/10` for structural separation. Shadows should be ambient and deep (`shadow-[0_8px_32px_rgba(0,0,0,0.4)]`).",
+    "motion": "Staggered entrance animations for dashboard cards and transaction rows using framer-motion. Hover states must subtly lighten the background (`hover:bg-white/10`)."
+  },
+  "image_urls": {
+    "family_avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGhlYWRzaG90fGVufDB8fHx8MTc4NDE3NzE4NXww&ixlib=rb-4.1.0&q=85",
+        "description": "Female avatar, smiling",
+        "category": "family_member_avatar_1"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGhlYWRzaG90fGVufDB8fHx8MTc4NDE3NzE4NXww&ixlib=rb-4.1.0&q=85",
+        "description": "Male avatar in white shirt",
+        "category": "family_member_avatar_2"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1506863530036-1efeddceb993?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGhlYWRzaG90fGVufDB8fHx8MTc4NDE3NzE4NXww&ixlib=rb-4.1.0&q=85",
+        "description": "Female avatar, grayscale",
+        "category": "family_member_avatar_3"
+      }
+    ],
+    "hero_background": [
+      {
+        "url": "https://images.pexels.com/photos/7505924/pexels-photo-7505924.jpeg",
+        "description": "Dark, rippling abstract texture with reflective surfaces",
+        "category": "auth_page_background"
+      }
+    ],
+    "empty_states": [
+      {
+        "url": "https://images.pexels.com/photos/10994723/pexels-photo-10994723.jpeg",
+        "description": "Empty minimalist wallet on desk",
+        "category": "transactions_empty_state"
+      }
+    ]
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy and glass-morphism effects (12-24px blur).",
+    "You MUST NOT apply universal transition (e.g., `transition: all`). Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container, i.e., do not add `.App { text-align: center; }` in the CSS file.",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style.",
+    "NEVER use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons. Use Phosphor Icons (`@phosphor-icons/react`) or Lucide.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects.",
+    "All interactive and key informational elements MUST include a `data-testid` attribute in kebab-case."
+  ],
+  "accessibility": {
+    "contrast": "Ensure text over glassmorphism or backgrounds maintains minimum 4.5:1 ratio (WCAG AA).",
+    "focus_states": "Use `focus:ring-2 focus:ring-[#C5A880] focus:ring-offset-2 focus:ring-offset-[#0A0A0A]` for all inputs and buttons."
+  },
+  "icons": {
+    "library": "phosphor-icons or lucide-react",
+    "installation_command": "yarn add @phosphor-icons/react lucide-react",
+    "usage": "Use icons heavily in transaction rows and account cards. Lock icon for private, Eye icon for shared."
+  }
+}
