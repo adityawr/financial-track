@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../lib/i18n";
-import { LayoutDashboard, Wallet, ArrowLeftRight, LogOut, Sparkles } from "lucide-react";
+import { LayoutDashboard, Wallet, ArrowLeftRight, LogOut, Sparkles, Users } from "lucide-react";
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -13,6 +13,7 @@ export default function Layout({ children }) {
     { to: "/", label: t("nav.dashboard"), icon: LayoutDashboard, testId: "nav-dashboard" },
     { to: "/accounts", label: t("nav.accounts"), icon: Wallet, testId: "nav-accounts" },
     { to: "/transactions", label: t("nav.transactions"), icon: ArrowLeftRight, testId: "nav-transactions" },
+    { to: "/members", label: t("nav.members"), icon: Users, testId: "nav-members" },
   ];
 
   const initials = (user?.name || "?").split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();

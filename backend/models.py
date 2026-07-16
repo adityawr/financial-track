@@ -40,6 +40,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=6)
     name: str = Field(min_length=1)
     family_name: Optional[str] = None
+    invite_token: Optional[str] = None
 
 
 class LoginRequest(BaseModel):

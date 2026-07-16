@@ -34,6 +34,8 @@ async def ensure_indexes():
     await db.transactions.create_index([("family_id", 1), ("date", -1)])
     await db.transactions.create_index([("account_id", 1)])
     await db.categories.create_index([("family_id", 1)])
+    await db.family_invites.create_index("token", unique=True)
+    await db.family_invites.create_index([("family_id", 1), ("email", 1), ("status", 1)])
 
 
 DEFAULT_CATEGORIES = [

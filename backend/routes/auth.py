@@ -31,9 +31,48 @@ async def register(payload: RegisterRequest):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     now = datetime.now(timezone.utc)
-    family_name = (payload.family_name or f"{payload.name}'s Family").strip()
 
-    # Insert user first without family_id, then link
+    # ---- Path A: joining via invite ----
+    if payload.invite_token:
+        inv = await db.family_invites.find_one({"token": payload.invite_token})
+        if not inv or inv["status"] != "pending":
+            raise HTTPException(status_code=400, detail="Undangan tidak valid")
+        expires_at = inv["expires_at"]
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < now:
+            raise HTTPException(status_code=400, detail="Undangan sudah kedaluwarsa")
+        if inv["email"].lower() != email:
+            raise HTTPException(status_code=400, detail="Email tidak cocok dengan undangan")
+
+        family_id = inv["family_id"]
+        role = inv["role"]
+        user_doc = {
+            "email": email,
+            "password_hash": hash_password(payload.password),
+            "name": payload.name.strip(),
+            "avatar_url": None,
+            "role": role,
+            "created_at": now,
+            "joined_at": now,
+            "status": "active",
+            "family_id": family_id,
+        }
+        user_result = await db.users.insert_one(user_doc)
+        user_id = str(user_result.inserted_id)
+        await db.families.update_one({"_id": ObjectId(family_id)}, {"$addToSet": {"member_ids": user_id}})
+        await db.family_invites.update_one(
+            {"_id": inv["_id"]},
+            {"$set": {"status": "accepted", "accepted_by": user_id, "accepted_at": now}},
+        )
+        user = await db.users.find_one({"_id": user_result.inserted_id})
+        token = create_access_token(user_id, email)
+        return {"user": _serialize_user(user), "access_token": token, "token_type": "bearer"}
+
+    # ---- Path B: creating a brand new family (Owner) ----
+    family_name = (payload.family_name or f"{payload.name}'s Family").strip()
     user_doc = {
         "email": email,
         "password_hash": hash_password(payload.password),
@@ -41,6 +80,8 @@ async def register(payload: RegisterRequest):
         "avatar_url": None,
         "role": "Owner",
         "created_at": now,
+        "joined_at": now,
+        "status": "active",
         "family_id": None,
     }
     user_result = await db.users.insert_one(user_doc)

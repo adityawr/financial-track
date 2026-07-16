@@ -6,6 +6,7 @@ import AuthPage from "@/pages/AuthPage";
 import Dashboard from "@/pages/Dashboard";
 import Accounts from "@/pages/Accounts";
 import Transactions from "@/pages/Transactions";
+import Members from "@/pages/Members";
 import Layout from "@/components/Layout";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -45,6 +46,7 @@ function App() {
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/accounts" element={<Protected><Accounts /></Protected>} />
             <Route path="/transactions" element={<Protected><Transactions /></Protected>} />
+            <Route path="/members" element={<Protected><Members /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
