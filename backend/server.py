@@ -19,6 +19,12 @@ from routes.accounts import router as accounts_router  # noqa: E402
 from routes.transactions import router as transactions_router  # noqa: E402
 from routes.categories import router as categories_router  # noqa: E402
 from routes.dashboard import router as dashboard_router  # noqa: E402
+from routes.providers import router as providers_router  # noqa: E402
+from routes.assets import router as assets_router  # noqa: E402
+from routes.investments import router as investments_router  # noqa: E402
+from routes.loans import router as loans_router  # noqa: E402
+from routes.goals import router as goals_router  # noqa: E402
+from routes.reports_settings import router as reports_settings_router  # noqa: E402
 
 app = FastAPI(title="Family Financial Tracker API")
 
@@ -41,6 +47,12 @@ api_router.include_router(accounts_router)
 api_router.include_router(transactions_router)
 api_router.include_router(categories_router)
 api_router.include_router(dashboard_router)
+api_router.include_router(providers_router)
+api_router.include_router(assets_router)
+api_router.include_router(investments_router)
+api_router.include_router(loans_router)
+api_router.include_router(goals_router)
+api_router.include_router(reports_settings_router)
 
 app.include_router(api_router)
 

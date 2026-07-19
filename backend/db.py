@@ -36,6 +36,11 @@ async def ensure_indexes():
     await db.categories.create_index([("family_id", 1)])
     await db.family_invites.create_index("token", unique=True)
     await db.family_invites.create_index([("family_id", 1), ("email", 1), ("status", 1)])
+    await db.providers.create_index([("family_id", 1), ("type", 1)])
+    await db.assets.create_index([("family_id", 1)])
+    await db.investments.create_index([("family_id", 1)])
+    await db.loans.create_index([("family_id", 1)])
+    await db.goals.create_index([("family_id", 1)])
 
 
 DEFAULT_CATEGORIES = [
@@ -65,3 +70,38 @@ async def seed_family_categories(family_id: str):
         return
     docs = [{**c, "family_id": family_id} for c in DEFAULT_CATEGORIES]
     await db.categories.insert_many(docs)
+
+
+DEFAULT_PROVIDERS = [
+    # Banks
+    {"name": "BCA", "type": "bank", "color": "#005EAA"},
+    {"name": "BRI", "type": "bank", "color": "#003D79"},
+    {"name": "Mandiri", "type": "bank", "color": "#F2A900"},
+    {"name": "BNI", "type": "bank", "color": "#EE7D11"},
+    {"name": "CIMB", "type": "bank", "color": "#8E2323"},
+    {"name": "Permata", "type": "bank", "color": "#005E3C"},
+    {"name": "Jenius", "type": "bank", "color": "#00A5DC"},
+    # E-wallets
+    {"name": "OVO", "type": "ewallet", "color": "#4C3494"},
+    {"name": "GoPay", "type": "ewallet", "color": "#00AED6"},
+    {"name": "Dana", "type": "ewallet", "color": "#118EEA"},
+    {"name": "ShopeePay", "type": "ewallet", "color": "#EE4D2D"},
+    {"name": "LinkAja", "type": "ewallet", "color": "#E30613"},
+    # Cash
+    {"name": "Cash", "type": "cash", "color": "#71717A"},
+    # Credit cards
+    {"name": "BCA Card", "type": "credit_card", "color": "#005EAA"},
+    {"name": "Mandiri Card", "type": "credit_card", "color": "#F2A900"},
+    {"name": "BNI Card", "type": "credit_card", "color": "#EE7D11"},
+]
+
+
+async def seed_family_providers(family_id: str):
+    from datetime import datetime, timezone
+    db = get_db()
+    existing = await db.providers.count_documents({"family_id": family_id})
+    if existing > 0:
+        return
+    now = datetime.now(timezone.utc)
+    docs = [{**p, "family_id": family_id, "is_default": True, "created_at": now} for p in DEFAULT_PROVIDERS]
+    await db.providers.insert_many(docs)

@@ -11,31 +11,28 @@ import { Card } from "../components/ui/card";
 import { toast } from "sonner";
 import { Plus, Lock, Users, Wallet, Building2, Smartphone, CreditCard, Trash2 } from "lucide-react";
 
-const PROVIDERS = {
-  bank: ["BCA", "BRI", "Mandiri", "BNI", "CIMB", "Permata", "Jenius"],
-  ewallet: ["OVO", "GoPay", "Dana", "ShopeePay", "LinkAja"],
-  cash: ["Cash"],
-  credit_card: ["BCA Card", "Mandiri Card", "BNI Card", "Citibank"],
-};
-
-const BRAND_COLORS = {
-  BCA: "#005EAA", BRI: "#003D79", Mandiri: "#F2A900", BNI: "#EE7D11", CIMB: "#8E2323",
-  OVO: "#4C3494", GoPay: "#00AED6", Dana: "#118EEA", ShopeePay: "#EE4D2D", LinkAja: "#E30613",
-  Cash: "#71717A", Permata: "#005E3C", Jenius: "#00A5DC",
-};
-
 const TYPE_ICONS = { bank: Building2, ewallet: Smartphone, cash: Wallet, credit_card: CreditCard };
 
-function AccountDialog({ open, onOpenChange, onCreated }) {
+function AccountDialog({ open, onOpenChange, onCreated, providers }) {
   const { t } = useI18n();
-  const [form, setForm] = useState({ name: "", type: "bank", provider: "BCA", opening_balance: "0", visibility: "PRIVATE" });
+  const [form, setForm] = useState({ name: "", type: "bank", provider: "", opening_balance: "0", visibility: "PRIVATE" });
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-select first provider matching current type
+  useEffect(() => {
+    const matching = providers.filter((p) => p.type === form.type);
+    if (matching.length && !matching.find((p) => p.name === form.provider)) {
+      setForm((s) => ({ ...s, provider: matching[0].name }));
+    }
+    // eslint-disable-next-line
+  }, [form.type, providers]);
 
   const submit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const color = BRAND_COLORS[form.provider] || "#C5A880";
+      const p = providers.find((x) => x.name === form.provider);
+      const color = p?.color || "#C5A880";
       const { data } = await api.post("/accounts", {
         name: form.name.trim(),
         type: form.type,
@@ -47,7 +44,7 @@ function AccountDialog({ open, onOpenChange, onCreated }) {
       });
       onCreated(data);
       onOpenChange(false);
-      setForm({ name: "", type: "bank", provider: "BCA", opening_balance: "0", visibility: "PRIVATE" });
+      setForm({ name: "", type: "bank", provider: "", opening_balance: "0", visibility: "PRIVATE" });
       toast.success("Akun dibuat");
     } catch (err) {
       toast.error(formatApiError(err));
@@ -56,7 +53,7 @@ function AccountDialog({ open, onOpenChange, onCreated }) {
     }
   };
 
-  const providers = PROVIDERS[form.type] || [];
+  const providersOfType = providers.filter((p) => p.type === form.type);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -88,7 +85,14 @@ function AccountDialog({ open, onOpenChange, onCreated }) {
               <Select value={form.provider} onValueChange={(v) => setForm({ ...form, provider: v })}>
                 <SelectTrigger data-testid="account-provider" className="bg-white/[0.03] border-white/10 h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {providers.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  {providersOfType.map((p) => (
+                    <SelectItem key={p.id} value={p.name}>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full" style={{ background: p.color || "#71717A" }} />
+                        {p.name}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -126,11 +130,15 @@ function AccountDialog({ open, onOpenChange, onCreated }) {
 export default function Accounts() {
   const { t } = useI18n();
   const [accounts, setAccounts] = useState([]);
+  const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const load = () => api.get("/accounts").then((r) => setAccounts(r.data)).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  const load = async () => {
+    const [a, p] = await Promise.all([api.get("/accounts"), api.get("/providers")]);
+    setAccounts(a.data); setProviders(p.data);
+  };
+  useEffect(() => { load().finally(() => setLoading(false)); }, []);
 
   const del = async (id) => {
     try {
@@ -169,7 +177,7 @@ export default function Accounts() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="accounts-grid">
           {accounts.map((a) => {
             const Icon = TYPE_ICONS[a.type] || Wallet;
-            const color = a.color || BRAND_COLORS[a.provider] || "#C5A880";
+            const color = a.color || (providers.find((p) => p.name === a.provider)?.color) || "#C5A880";
             return (
               <Card key={a.id} data-testid={`account-card-${a.id}`}
                 className="brand-edge card-solid bg-transparent border-white/10 p-5 pt-6 relative hover:bg-white/[0.02] transition-colors group"
@@ -209,7 +217,7 @@ export default function Accounts() {
         </div>
       )}
 
-      <AccountDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreated={(a) => setAccounts((prev) => [...prev, a])} />
+      <AccountDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreated={(a) => setAccounts((prev) => [...prev, a])} providers={providers} />
     </div>
   );
 }

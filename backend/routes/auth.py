@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 
-from db import get_db, seed_family_categories
+from db import get_db, seed_family_categories, seed_family_providers
 from auth_utils import hash_password, verify_password, create_access_token, CurrentUser
 from models import RegisterRequest, LoginRequest
 
@@ -99,6 +99,7 @@ async def register(payload: RegisterRequest):
 
     await db.users.update_one({"_id": user_result.inserted_id}, {"$set": {"family_id": family_id}})
     await seed_family_categories(family_id)
+    await seed_family_providers(family_id)
 
     user = await db.users.find_one({"_id": user_result.inserted_id})
     token = create_access_token(user_id, email)

@@ -7,6 +7,12 @@ import Dashboard from "@/pages/Dashboard";
 import Accounts from "@/pages/Accounts";
 import Transactions from "@/pages/Transactions";
 import Members from "@/pages/Members";
+import Assets from "@/pages/Assets";
+import Investments from "@/pages/Investments";
+import Loans from "@/pages/Loans";
+import Goals from "@/pages/Goals";
+import Reports from "@/pages/Reports";
+import Settings from "@/pages/Settings";
 import Layout from "@/components/Layout";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -46,7 +52,13 @@ function App() {
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/accounts" element={<Protected><Accounts /></Protected>} />
             <Route path="/transactions" element={<Protected><Transactions /></Protected>} />
+            <Route path="/assets" element={<Protected><Assets /></Protected>} />
+            <Route path="/investments" element={<Protected><Investments /></Protected>} />
+            <Route path="/loans" element={<Protected><Loans /></Protected>} />
+            <Route path="/goals" element={<Protected><Goals /></Protected>} />
+            <Route path="/reports" element={<Protected><Reports /></Protected>} />
             <Route path="/members" element={<Protected><Members /></Protected>} />
+            <Route path="/settings" element={<Protected><Settings /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
