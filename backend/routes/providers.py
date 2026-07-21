@@ -48,6 +48,11 @@ def _require_owner_or_editor(user: dict):
 @router.get("")
 async def list_providers(current_user: dict = CurrentUser):
     db = get_db()
+    # Auto-seed for families that haven't got providers yet (e.g., created before Phase 2)
+    count = await db.providers.count_documents({"family_id": current_user["family_id"]})
+    if count == 0:
+        from db import seed_family_providers
+        await seed_family_providers(current_user["family_id"])
     cursor = db.providers.find({"family_id": current_user["family_id"]})
     return [_serialize(p) async for p in cursor.sort([("type", 1), ("name", 1)])]
 

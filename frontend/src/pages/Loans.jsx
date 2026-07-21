@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../components/ui/textarea";
 import { Progress } from "../components/ui/progress";
 import { toast } from "sonner";
-import { Plus, Home, Building2, Car, CreditCard, Wallet, Lock, Users, Trash2, ChevronRight, CircleCheck, Clock, TriangleAlert } from "lucide-react";
+import { Plus, Home, Building2, Car, CreditCard, Wallet, Lock, Users, Trash2, ChevronRight, CircleCheck, Clock, TriangleAlert, Pencil } from "lucide-react";
 
 const TYPE_META = {
   mortgage: { label: "KPR / Rumah", icon: Home, color: "#0EA5E9" },
@@ -20,33 +20,63 @@ const TYPE_META = {
   credit_card: { label: "Credit Card", icon: CreditCard, color: "#F43F5E" },
 };
 
-function LoanDialog({ open, onOpenChange, onCreated }) {
+function LoanDialog({ open, onOpenChange, onSaved, editing }) {
+  const isEdit = !!editing;
   const [form, setForm] = useState({
     name: "", type: "mortgage", lender: "", principal: "", interest_rate_annual: "",
     term_months: "12", start_date: new Date().toISOString().slice(0, 10),
     visibility: "SHARED", notes: "",
   });
   const [saving, setSaving] = useState(false);
+  const hasPaidInstallment = !!editing && (editing.paid_installments || 0) > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setForm({
+        name: editing.name || "",
+        type: editing.type || "mortgage",
+        lender: editing.lender || "",
+        principal: String(editing.principal || ""),
+        interest_rate_annual: String(editing.interest_rate_annual ?? ""),
+        term_months: String(editing.term_months || 12),
+        start_date: editing.start_date ? new Date(editing.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+        visibility: editing.visibility || "SHARED",
+        notes: editing.notes || "",
+      });
+    } else {
+      setForm({
+        name: "", type: "mortgage", lender: "", principal: "", interest_rate_annual: "",
+        term_months: "12", start_date: new Date().toISOString().slice(0, 10),
+        visibility: "SHARED", notes: "",
+      });
+    }
+  }, [open, editing]);
 
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const { data } = await api.post("/loans", {
+      const payload = {
         name: form.name.trim(),
-        type: form.type,
         lender: form.lender || undefined,
-        principal: Number(String(form.principal).replace(/\D/g, "")) || 0,
-        interest_rate_annual: Number(String(form.interest_rate_annual).replace(/[^\d.]/g, "")) || 0,
-        term_months: Number(form.term_months) || 12,
-        start_date: new Date(form.start_date).toISOString(),
         visibility: form.visibility,
         notes: form.notes || undefined,
-      });
-      onCreated(data);
+      };
+      // Include amortization fields only when creating or when no payments made in edit
+      if (!isEdit || !hasPaidInstallment) {
+        payload.type = form.type;
+        payload.principal = Number(String(form.principal).replace(/\D/g, "")) || 0;
+        payload.interest_rate_annual = Number(String(form.interest_rate_annual).replace(/[^\d.]/g, "")) || 0;
+        payload.term_months = Number(form.term_months) || 12;
+        payload.start_date = new Date(form.start_date).toISOString();
+      }
+      const { data } = isEdit
+        ? await api.patch(`/loans/${editing.id}`, payload)
+        : await api.post("/loans", payload);
+      onSaved(data, isEdit ? "update" : "create");
       onOpenChange(false);
-      setForm({ name: "", type: "mortgage", lender: "", principal: "", interest_rate_annual: "", term_months: "12", start_date: new Date().toISOString().slice(0, 10), visibility: "SHARED", notes: "" });
-      toast.success("Pinjaman ditambahkan");
+      toast.success(isEdit ? "Pinjaman diperbarui" : "Pinjaman ditambahkan");
     } catch (err) { toast.error(formatApiError(err)); }
     finally { setSaving(false); }
   };
@@ -54,7 +84,12 @@ function LoanDialog({ open, onOpenChange, onCreated }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#141414] border-white/10 text-white max-w-lg" data-testid="loan-dialog">
-        <DialogHeader><DialogTitle className="font-display text-2xl">Pinjaman Baru</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="font-display text-2xl">{isEdit ? "Edit Pinjaman" : "Pinjaman Baru"}</DialogTitle></DialogHeader>
+        {isEdit && hasPaidInstallment && (
+          <div className="text-xs text-[#F59E0B] bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-lg p-3">
+            {editing.paid_installments} cicilan sudah dibayar — pokok, bunga, tenor, & tgl mulai tidak bisa diubah untuk menjaga integritas jadwal.
+          </div>
+        )}
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
             <Label className="text-[#A1A1AA]">Nama</Label>
@@ -64,7 +99,7 @@ function LoanDialog({ open, onOpenChange, onCreated }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-[#A1A1AA]">Jenis</Label>
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })} disabled={isEdit && hasPaidInstallment}>
                 <SelectTrigger data-testid="loan-type" className="bg-white/[0.03] border-white/10 h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.entries(TYPE_META).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent>
               </Select>
@@ -80,13 +115,15 @@ function LoanDialog({ open, onOpenChange, onCreated }) {
               <Label className="text-[#A1A1AA]">Pokok (IDR)</Label>
               <Input data-testid="loan-principal" required inputMode="numeric" value={form.principal}
                 onChange={(e) => setForm({ ...form, principal: e.target.value })}
-                className="bg-white/[0.03] border-white/10 h-11 tabular" />
+                disabled={isEdit && hasPaidInstallment}
+                className="bg-white/[0.03] border-white/10 h-11 tabular disabled:opacity-50" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[#A1A1AA]">Bunga (% /tahun)</Label>
               <Input data-testid="loan-rate" required inputMode="decimal" value={form.interest_rate_annual}
                 onChange={(e) => setForm({ ...form, interest_rate_annual: e.target.value })}
-                placeholder="6" className="bg-white/[0.03] border-white/10 h-11 tabular" />
+                disabled={isEdit && hasPaidInstallment}
+                placeholder="6" className="bg-white/[0.03] border-white/10 h-11 tabular disabled:opacity-50" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -94,12 +131,14 @@ function LoanDialog({ open, onOpenChange, onCreated }) {
               <Label className="text-[#A1A1AA]">Tenor (bulan)</Label>
               <Input data-testid="loan-term" required inputMode="numeric" value={form.term_months}
                 onChange={(e) => setForm({ ...form, term_months: e.target.value })}
-                className="bg-white/[0.03] border-white/10 h-11 tabular" />
+                disabled={isEdit && hasPaidInstallment}
+                className="bg-white/[0.03] border-white/10 h-11 tabular disabled:opacity-50" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[#A1A1AA]">Tgl Mulai</Label>
               <Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                className="bg-white/[0.03] border-white/10 h-11" />
+                disabled={isEdit && hasPaidInstallment}
+                className="bg-white/[0.03] border-white/10 h-11 disabled:opacity-50" />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -112,7 +151,9 @@ function LoanDialog({ open, onOpenChange, onCreated }) {
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Batal</Button>
             <Button type="submit" disabled={saving} data-testid="loan-save" className="rounded-full font-semibold"
-              style={{ background: "linear-gradient(180deg, #C5A880, #8b7454)", color: "#0a0a0a" }}>{saving ? "…" : "Buat & Hitung Jadwal"}</Button>
+              style={{ background: "linear-gradient(180deg, #C5A880, #8b7454)", color: "#0a0a0a" }}>
+              {saving ? "…" : (isEdit ? "Simpan Perubahan" : "Buat & Hitung Jadwal")}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -282,6 +323,7 @@ export default function Loans() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [expanded, setExpanded] = useState(null);
 
   const load = async () => {
@@ -295,6 +337,12 @@ export default function Loans() {
     try { await api.delete(`/loans/${id}`); setLoans((xs) => xs.filter((x) => x.id !== id)); toast.success("Pinjaman ditutup"); }
     catch (err) { toast.error(formatApiError(err)); }
   };
+
+  const handleSaved = (data, mode) => {
+    setLoans((xs) => mode === "update" ? xs.map((x) => x.id === data.id ? data : x) : [data, ...xs]);
+  };
+  const openNew = () => { setEditing(null); setDialogOpen(true); };
+  const openEdit = (l) => { setEditing(l); setDialogOpen(true); };
 
   const totalOut = loans.reduce((s, l) => s + (l.principal_outstanding || 0), 0);
   const totalMonthly = loans.reduce((s, l) => s + (l.monthly_installment || 0), 0);
@@ -363,6 +411,8 @@ export default function Loans() {
                     <div className="text-[10px] uppercase tracking-widest text-[#71717A]">Sisa Pokok</div>
                     <div className="font-display text-lg tabular text-[#F43F5E]">{formatIDR(l.principal_outstanding)}</div>
                   </div>
+                  <button data-testid={`loan-edit-${l.id}`} onClick={(e) => { e.stopPropagation(); openEdit(l); }}
+                    className="opacity-0 group-hover:opacity-100 text-[#71717A] hover:text-[#C5A880] p-1 transition-opacity"><Pencil className="w-4 h-4" /></button>
                   <button data-testid={`loan-del-${l.id}`} onClick={(e) => { e.stopPropagation(); del(l.id); }}
                     className="opacity-0 group-hover:opacity-100 text-[#71717A] hover:text-[#F43F5E] p-1 transition-opacity"><Trash2 className="w-4 h-4" /></button>
                   <ChevronRight className="w-4 h-4 text-[#71717A]" />
@@ -373,7 +423,8 @@ export default function Loans() {
         </div>
       )}
 
-      <LoanDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreated={(l) => setLoans((xs) => [l, ...xs])} />
+      <LoanDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditing(null); }}
+        onSaved={handleSaved} editing={editing} />
     </div>
   );
 }

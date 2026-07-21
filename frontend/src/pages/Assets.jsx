@@ -20,24 +20,37 @@ const CATS = {
 };
 
 function AssetDialog({ open, onOpenChange, onCreated }) {
-  const [form, setForm] = useState({ name: "", category: "house", purchase_value: "0", current_value: "0", visibility: "SHARED", notes: "" });
+  const [form, setForm] = useState({
+    name: "", category: "house", purchase_value: "0", current_value: "0",
+    purchase_date: new Date().toISOString().slice(0, 10),
+    valuation_method: "manual", rate_per_year: "",
+    visibility: "SHARED", notes: "",
+  });
   const [saving, setSaving] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
+      const method = form.valuation_method;
+      const rate = method === "manual" ? undefined : Number(String(form.rate_per_year).replace(/[^\d.-]/g, "")) || 0;
       const { data } = await api.post("/assets", {
         name: form.name.trim(),
         category: form.category,
         purchase_value: Number(String(form.purchase_value).replace(/\D/g, "")) || 0,
         current_value: Number(String(form.current_value).replace(/\D/g, "")) || 0,
+        purchase_date: form.purchase_date ? new Date(form.purchase_date).toISOString() : undefined,
+        valuation_method: method,
+        rate_per_year: rate,
         visibility: form.visibility,
         notes: form.notes || undefined,
       });
       onCreated(data);
       onOpenChange(false);
-      setForm({ name: "", category: "house", purchase_value: "0", current_value: "0", visibility: "SHARED", notes: "" });
+      setForm({ name: "", category: "house", purchase_value: "0", current_value: "0",
+        purchase_date: new Date().toISOString().slice(0, 10),
+        valuation_method: "manual", rate_per_year: "",
+        visibility: "SHARED", notes: "" });
       toast.success("Aset ditambahkan");
     } catch (err) { toast.error(formatApiError(err)); }
     finally { setSaving(false); }
@@ -77,11 +90,43 @@ function AssetDialog({ open, onOpenChange, onCreated }) {
                 className="bg-white/[0.03] border-white/10 h-11 tabular" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[#A1A1AA]">Nilai Sekarang (IDR)</Label>
-              <Input data-testid="asset-current" inputMode="numeric" value={form.current_value}
-                onChange={(e) => setForm({ ...form, current_value: e.target.value })}
-                className="bg-white/[0.03] border-white/10 h-11 tabular" />
+              <Label className="text-[#A1A1AA]">Tgl Beli</Label>
+              <Input type="date" value={form.purchase_date} onChange={(e) => setForm({ ...form, purchase_date: e.target.value })}
+                className="bg-white/[0.03] border-white/10 h-11" />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[#A1A1AA]">Nilai Saat Ini (IDR)</Label>
+            <Input data-testid="asset-current" inputMode="numeric" value={form.current_value}
+              onChange={(e) => setForm({ ...form, current_value: e.target.value })}
+              className="bg-white/[0.03] border-white/10 h-11 tabular" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-4">
+            <div className="space-y-1.5">
+              <Label className="text-[#A1A1AA]">Metode Valuasi</Label>
+              <Select value={form.valuation_method} onValueChange={(v) => setForm({ ...form, valuation_method: v })}>
+                <SelectTrigger data-testid="asset-method" className="bg-white/[0.03] border-white/10 h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual (statis)</SelectItem>
+                  <SelectItem value="appreciation">Apresiasi (auto-naik)</SelectItem>
+                  <SelectItem value="depreciation">Depresiasi (auto-turun)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.valuation_method !== "manual" && (
+              <div className="space-y-1.5">
+                <Label className="text-[#A1A1AA]">Rate (% / tahun)</Label>
+                <Input data-testid="asset-rate" inputMode="decimal" value={form.rate_per_year}
+                  onChange={(e) => setForm({ ...form, rate_per_year: e.target.value })}
+                  placeholder={form.valuation_method === "appreciation" ? "5" : "10"}
+                  className="bg-white/[0.03] border-white/10 h-11 tabular" />
+                <p className="text-[10px] text-[#71717A]">
+                  {form.valuation_method === "appreciation"
+                    ? "Nilai naik majemuk (mis. rumah, emas)."
+                    : "Nilai turun garis lurus (mis. kendaraan)."}
+                </p>
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-[#A1A1AA]">Catatan</Label>
@@ -169,6 +214,14 @@ export default function Assets() {
     catch (err) { toast.error(formatApiError(err)); }
   };
 
+  const applyProjection = async (id) => {
+    try {
+      const { data } = await api.post(`/assets/${id}/apply-projection`);
+      setAssets((xs) => xs.map((x) => x.id === id ? data : x));
+      toast.success("Proyeksi diterapkan ke nilai sekarang");
+    } catch (err) { toast.error(formatApiError(err)); }
+  };
+
   const totalValue = assets.reduce((s, a) => s + (a.current_value || 0), 0);
   const totalPurchase = assets.reduce((s, a) => s + (a.purchase_value || 0), 0);
   const totalGain = totalValue - totalPurchase;
@@ -226,21 +279,36 @@ export default function Assets() {
                       <div className="font-medium truncate">{a.name}</div>
                       {a.visibility === "PRIVATE" ? <Lock className="w-3.5 h-3.5 text-[#71717A]" /> : <Users className="w-3.5 h-3.5 text-[#C5A880]" />}
                     </div>
-                    <div className="text-xs text-[#71717A] mt-0.5">{meta.label}</div>
+                    <div className="text-xs text-[#71717A] mt-0.5 flex items-center gap-2">
+                      <span>{meta.label}</span>
+                      {a.valuation_method !== "manual" && a.rate_per_year != null && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border border-white/10"
+                          style={{ color: a.valuation_method === "appreciation" ? "#10B981" : "#F43F5E" }}>
+                          {a.valuation_method === "appreciation" ? "↑" : "↓"} {a.rate_per_year}%/thn
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <button data-testid={`asset-del-${a.id}`} onClick={() => del(a.id)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-[#71717A] hover:text-[#F43F5E] p-1"><Trash2 className="w-4 h-4" /></button>
                 </div>
-                <div className="mt-5 flex items-end justify-between">
-                  <div>
+                <div className="mt-5 flex items-end justify-between gap-3">
+                  <div className="min-w-0">
                     <div className="text-[10px] uppercase tracking-widest text-[#71717A]">Nilai Sekarang</div>
                     <div className="font-display text-2xl tabular">{formatIDR(a.current_value)}</div>
                     <div className={`text-xs tabular mt-1 ${gain >= 0 ? "text-[#10B981]" : "text-[#F43F5E]"}`}>
                       {gain >= 0 ? "+" : ""}{formatIDR(gain)} dari harga beli
                     </div>
+                    {a.projected_value != null && Math.round(a.projected_value) !== Math.round(a.current_value || 0) && (
+                      <div className="text-[11px] mt-2 text-[#C5A880] flex items-center gap-1.5">
+                        <span>Proyeksi hari ini: <span className="tabular">{formatIDR(a.projected_value)}</span></span>
+                        <button data-testid={`asset-apply-${a.id}`} onClick={() => applyProjection(a.id)}
+                          className="underline hover:text-white">Terapkan</button>
+                      </div>
+                    )}
                   </div>
                   <Button data-testid={`asset-reval-${a.id}`} size="sm" variant="ghost" onClick={() => setValDialog(a)}
-                    className="text-[#C5A880] hover:bg-[#C5A880]/10 rounded-full h-8">
+                    className="text-[#C5A880] hover:bg-[#C5A880]/10 rounded-full h-8 flex-shrink-0">
                     <TrendingUp className="w-3.5 h-3.5 mr-1" /> Revaluasi
                   </Button>
                 </div>

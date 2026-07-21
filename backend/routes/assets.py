@@ -58,7 +58,7 @@ def _visible_filter(user: dict) -> dict:
 
 
 def _serialize(a: dict) -> dict:
-    return {
+    doc = {
         "id": str(a["_id"]),
         "family_id": a["family_id"],
         "owner_id": a["owner_id"],
@@ -74,6 +74,34 @@ def _serialize(a: dict) -> dict:
         "valuation_history": a.get("valuation_history", []),
         "created_at": a["created_at"],
     }
+    # Auto-projected value from rate_per_year + months elapsed since purchase
+    method = doc["valuation_method"]
+    rate = doc.get("rate_per_year")
+    purchase = doc.get("purchase_value") or 0
+    purchase_date = doc.get("purchase_date")
+    projected = None
+    if method in ("appreciation", "depreciation") and rate is not None and purchase_date is not None:
+        pd = purchase_date
+        if isinstance(pd, str):
+            try:
+                pd = datetime.fromisoformat(pd)
+            except Exception:
+                pd = None
+        if pd is not None:
+            if pd.tzinfo is None:
+                pd = pd.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            years = max(0.0, (now - pd).days / 365.25)
+            r = float(rate) / 100.0
+            if method == "appreciation":
+                # Compound growth (typical for real estate/gold)
+                projected = purchase * ((1 + r) ** years)
+            else:
+                # Straight-line depreciation (typical for vehicles)
+                projected = max(0.0, purchase * (1 - abs(r) * years))
+            projected = round(projected, 2)
+    doc["projected_value"] = projected
+    return doc
 
 
 @router.get("")
@@ -141,6 +169,32 @@ async def add_valuation(asset_id: str, payload: ValuationEntry, current_user: di
     await db.assets.update_one(
         {"_id": ObjectId(asset_id)},
         {"$set": {"current_value": payload.value}, "$push": {"valuation_history": entry}},
+    )
+    a = await db.assets.find_one({"_id": ObjectId(asset_id)})
+    return _serialize(a)
+
+
+@router.post("/{asset_id}/apply-projection")
+async def apply_projection(asset_id: str, current_user: dict = CurrentUser):
+    """Snap projected_value into current_value + push a valuation history entry."""
+    db = get_db()
+    a = await db.assets.find_one({"_id": ObjectId(asset_id)})
+    if not a or a["family_id"] != current_user["family_id"]:
+        raise HTTPException(status_code=404, detail="Asset tidak ditemukan")
+    if a["visibility"] == "PRIVATE" and a["owner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Tidak diizinkan")
+    ser = _serialize(a)
+    projected = ser.get("projected_value")
+    if projected is None:
+        raise HTTPException(status_code=400, detail="Aset tidak memakai metode apresiasi/depresiasi")
+    entry = {
+        "date": datetime.now(timezone.utc),
+        "value": projected,
+        "note": f"Auto-projection {a.get('valuation_method')} {a.get('rate_per_year')}%/thn",
+    }
+    await db.assets.update_one(
+        {"_id": ObjectId(asset_id)},
+        {"$set": {"current_value": projected}, "$push": {"valuation_history": entry}},
     )
     a = await db.assets.find_one({"_id": ObjectId(asset_id)})
     return _serialize(a)

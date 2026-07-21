@@ -31,6 +31,18 @@ class LoanCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class LoanUpdate(BaseModel):
+    name: Optional[str] = None
+    lender: Optional[str] = None
+    notes: Optional[str] = None
+    visibility: Optional[Visibility] = None
+    # If no payments made yet, these can also be modified → schedule regenerates
+    principal: Optional[float] = Field(default=None, gt=0)
+    interest_rate_annual: Optional[float] = Field(default=None, ge=0)
+    term_months: Optional[int] = Field(default=None, gt=0, le=600)
+    start_date: Optional[datetime] = None
+
+
 class PaymentRequest(BaseModel):
     installment_no: int = Field(gt=0)
     amount: Optional[float] = None
@@ -236,6 +248,49 @@ async def pay_installment(loan_id: str, payload: PaymentRequest, current_user: d
     schedule[idx]["paid_date"] = paid_date
     schedule[idx]["transaction_id"] = tx_id
     await db.loans.update_one({"_id": ObjectId(loan_id)}, {"$set": {"schedule": schedule}})
+    loan = await db.loans.find_one({"_id": ObjectId(loan_id)})
+    return _serialize(loan)
+
+
+@router.patch("/{loan_id}")
+async def update_loan(loan_id: str, payload: LoanUpdate, current_user: dict = CurrentUser):
+    db = get_db()
+    loan = await db.loans.find_one({"_id": ObjectId(loan_id)})
+    if not loan or loan["family_id"] != current_user["family_id"]:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    if loan["owner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Hanya pemilik yang bisa mengubah")
+
+    updates = payload.model_dump(exclude_none=True)
+    core_fields = {"principal", "interest_rate_annual", "term_months", "start_date"}
+    changed_core = core_fields & set(updates.keys())
+    if changed_core:
+        # Only allowed if no installment has been paid yet
+        paid = any(s.get("status") == "paid" for s in loan.get("schedule", []))
+        if paid:
+            raise HTTPException(
+                status_code=400,
+                detail="Tidak bisa mengubah pokok/bunga/tenor/tgl mulai karena sudah ada cicilan yang dibayar",
+            )
+        # Regenerate schedule
+        principal = updates.get("principal", loan["principal"])
+        rate = updates.get("interest_rate_annual", loan["interest_rate_annual"])
+        term = updates.get("term_months", loan["term_months"])
+        start = updates.get("start_date", loan["start_date"])
+        if isinstance(start, str):
+            start = datetime.fromisoformat(start)
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        installment, schedule = _amortization_schedule(principal, rate, term, start)
+        updates["schedule"] = schedule
+        updates["monthly_installment"] = installment
+        updates["start_date"] = start
+        updates["principal"] = principal
+        updates["interest_rate_annual"] = rate
+        updates["term_months"] = term
+
+    if updates:
+        await db.loans.update_one({"_id": ObjectId(loan_id)}, {"$set": updates})
     loan = await db.loans.find_one({"_id": ObjectId(loan_id)})
     return _serialize(loan)
 

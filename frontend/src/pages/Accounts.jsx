@@ -5,23 +5,42 @@ import { useI18n } from "../lib/i18n";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Card } from "../components/ui/card";
 import { toast } from "sonner";
-import { Plus, Lock, Users, Wallet, Building2, Smartphone, CreditCard, Trash2 } from "lucide-react";
+import { Plus, Lock, Users, Wallet, Building2, Smartphone, CreditCard, Trash2, Pencil } from "lucide-react";
 
 const TYPE_ICONS = { bank: Building2, ewallet: Smartphone, cash: Wallet, credit_card: CreditCard };
+const EMPTY_FORM = { name: "", type: "bank", provider: "", opening_balance: "0", visibility: "PRIVATE" };
 
-function AccountDialog({ open, onOpenChange, onCreated, providers }) {
+function AccountDialog({ open, onOpenChange, onSaved, providers, editing }) {
   const { t } = useI18n();
-  const [form, setForm] = useState({ name: "", type: "bank", provider: "", opening_balance: "0", visibility: "PRIVATE" });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const isEdit = !!editing;
 
-  // Auto-select first provider matching current type
+  // Init form on open
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setForm({
+        name: editing.name || "",
+        type: editing.type || "bank",
+        provider: editing.provider || "",
+        opening_balance: String(editing.opening_balance || 0),
+        visibility: editing.visibility || "PRIVATE",
+      });
+    } else {
+      setForm(EMPTY_FORM);
+    }
+  }, [open, editing]);
+
+  // Ensure provider always matches current type
   useEffect(() => {
     const matching = providers.filter((p) => p.type === form.type);
-    if (matching.length && !matching.find((p) => p.name === form.provider)) {
+    if (matching.length === 0) return;
+    if (!matching.find((p) => p.name === form.provider)) {
       setForm((s) => ({ ...s, provider: matching[0].name }));
     }
     // eslint-disable-next-line
@@ -33,19 +52,31 @@ function AccountDialog({ open, onOpenChange, onCreated, providers }) {
     try {
       const p = providers.find((x) => x.name === form.provider);
       const color = p?.color || "#C5A880";
-      const { data } = await api.post("/accounts", {
-        name: form.name.trim(),
-        type: form.type,
-        provider: form.provider,
-        opening_balance: Number(form.opening_balance.replace(/[^\d-]/g, "")) || 0,
-        color,
-        icon: form.type,
-        visibility: form.visibility,
-      });
-      onCreated(data);
+      if (isEdit) {
+        const { data } = await api.patch(`/accounts/${editing.id}`, {
+          name: form.name.trim(),
+          type: form.type,
+          provider: form.provider || undefined,
+          color,
+          icon: form.type,
+          visibility: form.visibility,
+        });
+        onSaved(data, "update");
+        toast.success("Akun diperbarui");
+      } else {
+        const { data } = await api.post("/accounts", {
+          name: form.name.trim(),
+          type: form.type,
+          provider: form.provider,
+          opening_balance: Number(String(form.opening_balance).replace(/[^\d-]/g, "")) || 0,
+          color,
+          icon: form.type,
+          visibility: form.visibility,
+        });
+        onSaved(data, "create");
+        toast.success("Akun dibuat");
+      }
       onOpenChange(false);
-      setForm({ name: "", type: "bank", provider: "", opening_balance: "0", visibility: "PRIVATE" });
-      toast.success("Akun dibuat");
     } catch (err) {
       toast.error(formatApiError(err));
     } finally {
@@ -59,7 +90,7 @@ function AccountDialog({ open, onOpenChange, onCreated, providers }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#141414] border-white/10 text-white" data-testid="account-dialog">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">{t("accounts.new")}</DialogTitle>
+          <DialogTitle className="font-display text-2xl">{isEdit ? "Edit Akun" : t("accounts.new")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
@@ -70,7 +101,7 @@ function AccountDialog({ open, onOpenChange, onCreated, providers }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-[#A1A1AA]">{t("accounts.type")}</Label>
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v, provider: PROVIDERS[v][0] })}>
+              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v, provider: "" })}>
                 <SelectTrigger data-testid="account-type" className="bg-white/[0.03] border-white/10 h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="bank">Bank</SelectItem>
@@ -83,9 +114,13 @@ function AccountDialog({ open, onOpenChange, onCreated, providers }) {
             <div className="space-y-1.5">
               <Label className="text-[#A1A1AA]">{t("accounts.provider")}</Label>
               <Select value={form.provider} onValueChange={(v) => setForm({ ...form, provider: v })}>
-                <SelectTrigger data-testid="account-provider" className="bg-white/[0.03] border-white/10 h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger data-testid="account-provider" className="bg-white/[0.03] border-white/10 h-11">
+                  <SelectValue placeholder={providersOfType.length === 0 ? "Belum ada provider" : "Pilih provider"} />
+                </SelectTrigger>
                 <SelectContent>
-                  {providersOfType.map((p) => (
+                  {providersOfType.length === 0 ? (
+                    <div className="px-3 py-4 text-xs text-[#71717A]">Tambahkan provider di menu Pengaturan → Provider Akun.</div>
+                  ) : providersOfType.map((p) => (
                     <SelectItem key={p.id} value={p.name}>
                       <span className="inline-flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full" style={{ background: p.color || "#71717A" }} />
@@ -97,12 +132,19 @@ function AccountDialog({ open, onOpenChange, onCreated, providers }) {
               </Select>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-[#A1A1AA]">{t("accounts.opening")} (IDR)</Label>
-            <Input data-testid="account-opening" type="text" inputMode="numeric" value={form.opening_balance}
-              onChange={(e) => setForm({ ...form, opening_balance: e.target.value })}
-              className="bg-white/[0.03] border-white/10 h-11 tabular" />
-          </div>
+          {!isEdit && (
+            <div className="space-y-1.5">
+              <Label className="text-[#A1A1AA]">{t("accounts.opening")} (IDR)</Label>
+              <Input data-testid="account-opening" type="text" inputMode="numeric" value={form.opening_balance}
+                onChange={(e) => setForm({ ...form, opening_balance: e.target.value })}
+                className="bg-white/[0.03] border-white/10 h-11 tabular" />
+            </div>
+          )}
+          {isEdit && (
+            <div className="text-xs text-[#71717A] px-1">
+              Saldo saat ini <span className="tabular text-white">{formatIDR(editing.current_balance)}</span> tidak diubah dari form ini — pakai transaksi untuk mengubah saldo.
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-[#A1A1AA]">{t("accounts.visibility")}</Label>
             <Select value={form.visibility} onValueChange={(v) => setForm({ ...form, visibility: v })}>
@@ -118,7 +160,7 @@ function AccountDialog({ open, onOpenChange, onCreated, providers }) {
             <Button type="submit" disabled={submitting} data-testid="account-save"
               className="rounded-full font-semibold"
               style={{ background: "linear-gradient(180deg, #C5A880, #8b7454)", color: "#0a0a0a" }}>
-              {submitting ? "…" : t("action.save")}
+              {submitting ? "…" : (isEdit ? "Simpan Perubahan" : t("action.save"))}
             </Button>
           </DialogFooter>
         </form>
@@ -133,20 +175,33 @@ export default function Accounts() {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const load = async () => {
-    const [a, p] = await Promise.all([api.get("/accounts"), api.get("/providers")]);
-    setAccounts(a.data); setProviders(p.data);
+    try {
+      const [a, p] = await Promise.all([api.get("/accounts"), api.get("/providers")]);
+      setAccounts(a.data); setProviders(p.data);
+    } catch (err) {
+      toast.error(formatApiError(err));
+    }
   };
   useEffect(() => { load().finally(() => setLoading(false)); }, []);
 
   const del = async (id) => {
+    if (!window.confirm("Hapus akun ini?")) return;
     try {
       await api.delete(`/accounts/${id}`);
       setAccounts((a) => a.filter((x) => x.id !== id));
       toast.success("Akun dihapus");
     } catch (err) { toast.error(formatApiError(err)); }
   };
+
+  const handleSaved = (data, mode) => {
+    setAccounts((prev) => mode === "update" ? prev.map((x) => x.id === data.id ? data : x) : [...prev, data]);
+  };
+
+  const openNew = () => { setEditing(null); setDialogOpen(true); };
+  const openEdit = (a) => { setEditing(a); setDialogOpen(true); };
 
   return (
     <div className="space-y-6" data-testid="accounts-page">
@@ -155,7 +210,7 @@ export default function Accounts() {
           <h1 className="font-display text-4xl">{t("accounts.title")}</h1>
           <p className="text-sm text-[#71717A] mt-1">Bank, e-wallet, tunai, dan kartu kredit — semua dalam satu tempat.</p>
         </div>
-        <Button data-testid="new-account-btn" onClick={() => setDialogOpen(true)}
+        <Button data-testid="new-account-btn" onClick={openNew}
           className="rounded-full font-semibold h-10"
           style={{ background: "linear-gradient(180deg, #C5A880, #8b7454)", color: "#0a0a0a" }}>
           <Plus className="w-4 h-4 mr-1" /> {t("accounts.new")}
@@ -168,7 +223,7 @@ export default function Accounts() {
         <Card className="card-solid bg-transparent border-white/10 border-dashed p-12 text-center">
           <Wallet className="w-8 h-8 text-[#C5A880] mx-auto mb-3" />
           <div className="text-[#A1A1AA] mb-4">{t("accounts.no_accounts")}</div>
-          <Button data-testid="empty-new-account" onClick={() => setDialogOpen(true)} className="rounded-full font-semibold"
+          <Button data-testid="empty-new-account" onClick={openNew} className="rounded-full font-semibold"
             style={{ background: "linear-gradient(180deg, #C5A880, #8b7454)", color: "#0a0a0a" }}>
             <Plus className="w-4 h-4 mr-1" /> {t("accounts.new")}
           </Button>
@@ -193,9 +248,11 @@ export default function Accounts() {
                       <div className="text-xs text-[#71717A]">{a.provider} · {a.type}</div>
                     </div>
                   </div>
-                  {a.visibility === "PRIVATE"
-                    ? <Lock className="w-3.5 h-3.5 text-[#71717A]" />
-                    : <Users className="w-3.5 h-3.5 text-[#C5A880]" />}
+                  <div className="flex items-center gap-2">
+                    {a.visibility === "PRIVATE"
+                      ? <Lock className="w-3.5 h-3.5 text-[#71717A]" />
+                      : <Users className="w-3.5 h-3.5 text-[#C5A880]" />}
+                  </div>
                 </div>
                 <div className="flex items-end justify-between">
                   <div>
@@ -204,12 +261,20 @@ export default function Accounts() {
                       {formatIDR(a.current_balance)}
                     </div>
                   </div>
-                  <button
-                    data-testid={`delete-account-${a.id}`}
-                    onClick={() => del(a.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-[#71717A] hover:text-[#F43F5E] p-1.5"
-                    title="Hapus"
-                  ><Trash2 className="w-4 h-4" /></button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      data-testid={`edit-account-${a.id}`}
+                      onClick={() => openEdit(a)}
+                      className="text-[#71717A] hover:text-[#C5A880] p-1.5"
+                      title="Edit"
+                    ><Pencil className="w-4 h-4" /></button>
+                    <button
+                      data-testid={`delete-account-${a.id}`}
+                      onClick={() => del(a.id)}
+                      className="text-[#71717A] hover:text-[#F43F5E] p-1.5"
+                      title="Hapus"
+                    ><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 </div>
               </Card>
             );
@@ -217,7 +282,8 @@ export default function Accounts() {
         </div>
       )}
 
-      <AccountDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreated={(a) => setAccounts((prev) => [...prev, a])} providers={providers} />
+      <AccountDialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditing(null); }}
+        onSaved={handleSaved} providers={providers} editing={editing} />
     </div>
   );
 }
