@@ -19,6 +19,7 @@ def _serialize_user(user: dict) -> dict:
         "role": user.get("role", "Owner"),
         "family_id": str(user["family_id"]),
         "created_at": user["created_at"],
+        "default_expense_account_id": user.get("default_expense_account_id"),
     }
 
 

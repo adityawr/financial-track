@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../lib/i18n";
-import { LayoutDashboard, Wallet, ArrowLeftRight, LogOut, Sparkles, Users, Home, Coins, Target, BarChart3, Settings as SettingsIcon } from "lucide-react";
+import { LayoutDashboard, Wallet, ArrowLeftRight, LogOut, Sparkles, Users, Home, Coins, Target, BarChart3, Settings as SettingsIcon, Zap } from "lucide-react";
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -11,6 +11,7 @@ export default function Layout({ children }) {
 
   const nav = [
     { to: "/", label: t("nav.dashboard"), icon: LayoutDashboard, testId: "nav-dashboard" },
+    { to: "/quick-expense", label: t("nav.quick_expense"), icon: Zap, testId: "nav-quick-expense" },
     { to: "/accounts", label: t("nav.accounts"), icon: Wallet, testId: "nav-accounts" },
     { to: "/transactions", label: t("nav.transactions"), icon: ArrowLeftRight, testId: "nav-transactions" },
     { to: "/assets", label: t("nav.assets"), icon: Home, testId: "nav-assets" },

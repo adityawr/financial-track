@@ -13,6 +13,7 @@ import Loans from "@/pages/Loans";
 import Goals from "@/pages/Goals";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
+import QuickExpense from "@/pages/QuickExpense";
 import Layout from "@/components/Layout";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -52,6 +53,7 @@ function App() {
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/accounts" element={<Protected><Accounts /></Protected>} />
             <Route path="/transactions" element={<Protected><Transactions /></Protected>} />
+            <Route path="/quick-expense" element={<Protected><QuickExpense /></Protected>} />
             <Route path="/assets" element={<Protected><Assets /></Protected>} />
             <Route path="/investments" element={<Protected><Investments /></Protected>} />
             <Route path="/loans" element={<Protected><Loans /></Protected>} />
