@@ -122,4 +122,8 @@ async def login(payload: LoginRequest):
 
 @router.get("/me")
 async def me(current_user: dict = CurrentUser):
-    return current_user
+    db = get_db()
+    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return _serialize_user(user)
