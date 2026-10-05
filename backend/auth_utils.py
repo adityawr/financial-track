@@ -1,5 +1,6 @@
 """JWT auth utilities."""
 import os
+import hashlib
 import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
@@ -12,9 +13,14 @@ ACCESS_TOKEN_MINUTES = 60 * 24 * 7  # 7 days for simpler dev; tune later
 
 def get_jwt_secret() -> str:
     secret = os.environ.get("JWT_SECRET")
-    if not secret:
+    if secret:
+        return secret
+    # Fallback: derive a stable secret from the (already secret) Mongo URI so
+    # tokens stay valid across serverless instances. Set JWT_SECRET to override.
+    mongo_uri = os.environ.get("MONGODB_URI")
+    if not mongo_uri:
         raise RuntimeError("JWT_SECRET not set")
-    return secret
+    return hashlib.sha256(f"jwt:{mongo_uri}".encode("utf-8")).hexdigest()
 
 
 def hash_password(password: str) -> str:
