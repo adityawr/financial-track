@@ -8,8 +8,8 @@ _db: AsyncIOMotorDatabase = None
 
 def init_db():
     global _client, _db
-    mongo_url = os.environ["MONGO_URL"]
-    db_name = os.environ["DB_NAME"]
+    mongo_url = os.environ.get("MONGO_URL") or os.environ["MONGODB_URI"]
+    db_name = os.environ.get("DB_NAME", "financial_tracker")
     _client = AsyncIOMotorClient(mongo_url)
     _db = _client[db_name]
     return _db
